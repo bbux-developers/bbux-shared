@@ -28,7 +28,9 @@ const schema: ListSchema = {
     { key: 'name', label: 'Name', type: 'text', sortable: true, pinned: 'left', primary: true },
     { key: 'team', label: 'Team', type: 'text', sortable: true },
     { key: 'status', label: 'Status', type: 'text', sortable: true },
-    { key: 'amount', label: 'Amount', type: 'text', sortable: true },
+    // Right-pinned: stays stuck to the right edge (just inside the actions
+    // column) during horizontal scroll — mirror of the left-pinned Name.
+    { key: 'amount', label: 'Amount', type: 'text', sortable: true, pinned: 'right' },
   ],
 };
 
@@ -49,6 +51,9 @@ const filterFields: FilterField[] = [
 export default function App() {
   const [settings, setSettings] = useState<TableSettings>(() => defaultTableSettings(schema));
   const [filters, setFilters] = useState<ActiveFilters>({});
+  // Toggle the leading selection-checkbox column on/off (the codes list runs
+  // with selection off — no checkboxes, no bulk bar).
+  const [selectable, setSelectable] = useState(true);
 
   const rowActions: RowActionsConfig<Person> = {
     entityNoun: 'person',
@@ -71,6 +76,13 @@ export default function App() {
         >
           {settings.groupBy ? 'Ungroup' : 'Group by team'}
         </button>
+        <button
+          type="button"
+          onClick={() => setSelectable((s) => !s)}
+          className="rounded-md border border-border px-2 py-1 text-text-muted text-xs hover:text-text"
+        >
+          {selectable ? 'Selection: on' : 'Selection: off'}
+        </button>
       </ListHeader>
 
       <EntityTable<Person>
@@ -90,6 +102,7 @@ export default function App() {
         tableSettings={settings}
         onTableSettingsChange={setSettings}
         rowActions={rowActions}
+        selectable={selectable}
         onLoadMore={() => {}}
         hasMore={false}
         isFetchingMore={false}

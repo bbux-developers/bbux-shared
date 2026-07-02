@@ -154,6 +154,12 @@ const RenderRowActionsContext = createContext<((row: unknown) => ReactNode) | nu
 const CellRenderContext = createContext<{
   cellOverrides?: Record<string, (row: unknown) => ReactNode>;
   cellRegistry?: Record<string, ComponentType<CellProps>>;
+  // Whether the leading selection-checkbox column is rendered. Threaded via
+  // context (not props) so Row/GroupedRows don't have to prop-drill it.
+  selectable?: boolean;
+  // Key of the column pinned to the right edge (just inside the actions
+  // column), if any. null → no right-pinned column.
+  pinnedRightKey?: string | null;
 }>({});
 
 export interface EntitySchemaTableProps<T> {
@@ -221,6 +227,10 @@ export interface EntitySchemaTableProps<T> {
   // that opens the bulk-actions menu for the current selection (⌘K), and clears
   // it on deselect. Omit (tcms) — the floating bar's Actions button still works.
   registerBulkCommand?: (open: (() => void) | null) => void;
+  // When false, the leading selection-checkbox column and the bulk-selection
+  // floating bar are removed entirely — the list is not a bulk-select surface
+  // (e.g. the codes quote-builder). Defaults to true.
+  selectable?: boolean;
 }
 
 export function EntitySchemaTable<T>({
@@ -254,6 +264,7 @@ export function EntitySchemaTable<T>({
   cellOverrides,
   cellRegistry,
   registerBulkCommand,
+  selectable: selectableProp,
 }: EntitySchemaTableProps<T>) {
   const navigate = useNavigate();
   const { openModal } = useModals();
@@ -422,6 +433,21 @@ export function EntitySchemaTable<T>({
     () => visibleColumns.find((c) => c.pinned === 'left')?.key ?? null,
     [visibleColumns],
   );
+
+  // Pinned-right column — mirror of pinnedLeftKey: stays stuck to the right
+  // edge (just inside the actions column) during horizontal scroll. First
+  // visible column declaring pinned: 'right' wins.
+  const pinnedRightKey = useMemo(
+    () => visibleColumns.find((c) => c.pinned === 'right')?.key ?? null,
+    [visibleColumns],
+  );
+
+  // Selection column can be turned off (e.g. the codes list, which is a
+  // build-a-quote surface, not a bulk-select one). Default on.
+  const selectable = selectableProp ?? true;
+  // Left offset for the pinned-left column: sits after the checkbox gutter
+  // only when selection is on.
+  const pinnedLeftOffset = selectable ? CHECKBOX_COL_WIDTH : 0;
 
   // Ordering is server-side. tableSettings.orderBy feeds the list
   // endpoint's order_by query param (via useEntityList); the rows
@@ -658,8 +684,8 @@ export function EntitySchemaTable<T>({
       if (isEditable(e.target)) return;
       if (loadedIdsArray.length === 0) return;
 
-      // Cmd/Ctrl+A — select all loaded.
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+      // Cmd/Ctrl+A — select all loaded. No-op when selection is off.
+      if (selectable && (e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
         e.preventDefault();
         toggleAll();
         return;
@@ -710,6 +736,8 @@ export function EntitySchemaTable<T>({
           break;
         case ' ':
         case 'x': {
+          // Selection toggle — no-op when selection is off.
+          if (!selectable) break;
           e.preventDefault();
           const id = loadedIdsArray[focusedIndex];
           if (id) {
@@ -724,7 +752,7 @@ export function EntitySchemaTable<T>({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [focusedIndex, loadedIdsArray, selectRow, toggleAll]);
+  }, [focusedIndex, loadedIdsArray, selectRow, toggleAll, selectable]);
 
   const focusedId = focusedIndex !== null ? loadedIdsArray[focusedIndex] : null;
 
@@ -1057,6 +1085,8 @@ export function EntitySchemaTable<T>({
           | Record<string, (row: unknown) => ReactNode>
           | undefined,
         cellRegistry,
+        selectable,
+        pinnedRightKey,
       }}
     >
     <RenderRowActionsContext.Provider value={renderRowActions}>
@@ -1115,7 +1145,10 @@ export function EntitySchemaTable<T>({
                 hasExplicitSizing
                   ? {
                       tableLayout: 'fixed',
-                      width: rtTable.getCenterTotalSize() + CHECKBOX_COL_WIDTH + ACTIONS_COL_WIDTH,
+                      width:
+                        rtTable.getCenterTotalSize() +
+                        (selectable ? CHECKBOX_COL_WIDTH : 0) +
+                        ACTIONS_COL_WIDTH,
                     }
                   : undefined
               }
@@ -1131,6 +1164,7 @@ export function EntitySchemaTable<T>({
               top-40 lands flush. */}
               <TableHeader className="[&_tr]:border-b-0">
                 <TableRow className="group/thead border-b-0">
+                  {selectable && (
                   <TableHead
                     style={{
                       width: CHECKBOX_COL_WIDTH,
@@ -1168,6 +1202,7 @@ export function EntitySchemaTable<T>({
                       />
                     </div>
                   </TableHead>
+                  )}
                   {visibleColumns.map((c) => {
                     // The backend schema declares which columns wire
                     // click-to-sort. Same source of truth as the
@@ -1183,12 +1218,18 @@ export function EntitySchemaTable<T>({
                     const colWidth = localSizing[c.key] ?? DEFAULT_COL_WIDTH;
                     const isColResizing = resizingKey === c.key;
                     const isPinnedLeft = c.key === pinnedLeftKey;
+                    const isPinnedRight = c.key === pinnedRightKey;
                     const headStyle: React.CSSProperties = hasExplicitSizing
                       ? { width: colWidth }
                       : {};
                     if (isPinnedLeft) {
-                      headStyle.left = CHECKBOX_COL_WIDTH;
+                      headStyle.left = pinnedLeftOffset;
                       headStyle.boxShadow = stickyHeaderBoxShadow(scrolledLeft, false);
+                    } else if (isPinnedRight) {
+                      // Sits just inside the actions column and casts the
+                      // right-edge shadow as content scrolls under it.
+                      headStyle.right = ACTIONS_COL_WIDTH;
+                      headStyle.boxShadow = stickyHeaderBoxShadow(false, scrolledRight);
                     } else {
                       headStyle.boxShadow = stickyHeaderBoxShadow(false, false);
                     }
@@ -1199,7 +1240,7 @@ export function EntitySchemaTable<T>({
                         style={headStyle}
                         className={cn(
                           'group/col sticky top-0 h-10 bg-background p-0',
-                          isPinnedLeft ? 'z-40' : 'z-30',
+                          isPinnedLeft || isPinnedRight ? 'z-40' : 'z-30',
                         )}
                       >
                         {/* The <th> is sticky, so it can't also be
@@ -1328,7 +1369,12 @@ export function EntitySchemaTable<T>({
                       width: ACTIONS_COL_WIDTH,
                       minWidth: ACTIONS_COL_WIDTH,
                       right: 0,
-                      boxShadow: stickyHeaderBoxShadow(false, scrolledRight),
+                      // When a right-pinned column exists it owns the edge
+                      // shadow; the actions column stays flush against it.
+                      boxShadow: stickyHeaderBoxShadow(
+                        false,
+                        pinnedRightKey ? false : scrolledRight,
+                      ),
                     }}
                     className="sticky top-0 z-40 h-10 bg-background"
                     aria-label="Actions"
@@ -1432,7 +1478,7 @@ export function EntitySchemaTable<T>({
                 ) : null}
               </TableBody>
             </Table>
-            {selectedIds.size > 0 ? (
+            {selectable && selectedIds.size > 0 ? (
               <FloatingSelectionBar
                 count={selectedIds.size}
                 onOpen={openBulkMenu}
@@ -1813,7 +1859,12 @@ function Row<T>({
   // provided by EntitySchemaTable. null when the list wired no rowActions.
   const renderRowActions = useContext(RenderRowActionsContext);
   // Per-column render overrides + injected cell types (see CellRenderContext).
-  const { cellOverrides, cellRegistry } = useContext(CellRenderContext);
+  const { cellOverrides, cellRegistry, selectable: ctxSelectable, pinnedRightKey } =
+    useContext(CellRenderContext);
+  const selectable = ctxSelectable ?? true;
+  // Left offset for the pinned-left cell: after the checkbox gutter only when
+  // selection is on.
+  const pinnedLeftOffset = selectable ? CHECKBOX_COL_WIDTH : 0;
 
   // Sticky cells need a fully OPAQUE background so non-sticky
   // content can't bleed through during horizontal scroll. The row's
@@ -1845,8 +1896,23 @@ function Row<T>({
     : !pinnedLeftKey && scrolledLeft
       ? PIN_SHADOW_LEFT
       : null;
-  const pinnedShadow = pinnedLeftKey && scrolledLeft ? PIN_SHADOW_LEFT : null;
-  const actionsShadow = scrolledRight ? PIN_SHADOW_RIGHT : null;
+  // When selection is off, the pinned-left cell becomes the leading sticky
+  // cell, so it inherits the keyboard-focus accent that would otherwise live
+  // on the checkbox cell.
+  const pinnedLeftIsLeading = !selectable && !!pinnedLeftKey;
+  const pinnedShadow = pinnedLeftIsLeading
+    ? focused
+      ? FOCUS_ACCENT_LEFT
+      : scrolledLeft
+        ? PIN_SHADOW_LEFT
+        : null
+    : pinnedLeftKey && scrolledLeft
+      ? PIN_SHADOW_LEFT
+      : null;
+  // A right-pinned column owns the right-edge shadow; otherwise the actions
+  // cell casts it.
+  const pinnedRightShadow = pinnedRightKey && scrolledRight ? PIN_SHADOW_RIGHT : null;
+  const actionsShadow = !pinnedRightKey && scrolledRight ? PIN_SHADOW_RIGHT : null;
 
   return (
     <TableRow
@@ -1876,6 +1942,7 @@ function Row<T>({
         focused && !selected && '!bg-(--row-bg-focused) hover:!bg-(--row-bg-focused-hover)',
       )}
     >
+      {selectable && (
       <td
         style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH, left: 0 }}
         className={cn('sticky z-10 p-1 align-middle', stickyBg, checkboxShadow)}
@@ -1920,6 +1987,7 @@ function Row<T>({
           />
         </div>
       </td>
+      )}
       {(() => {
         // The row's detail link hangs off the PRIMARY column when the schema
         // declares one (e.g. Media: Title is the link though Preview is first);
@@ -1930,7 +1998,10 @@ function Row<T>({
           const opts: Parameters<typeof renderCell>[3] = {};
           if (col.key === pinnedLeftKey) {
             opts.className = cn('sticky z-10', stickyBg, pinnedShadow);
-            opts.style = { left: CHECKBOX_COL_WIDTH };
+            opts.style = { left: pinnedLeftOffset };
+          } else if (col.key === pinnedRightKey) {
+            opts.className = cn('sticky z-10', stickyBg, pinnedRightShadow);
+            opts.style = { right: ACTIONS_COL_WIDTH };
           }
           if (col.key === linkKey) opts.linkHref = detailHref;
           // Per-column render escape hatch + injected cell types.
