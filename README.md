@@ -32,3 +32,19 @@ go get github.com/matthewblackburn/bbux-shared/packages/go/filters
 ```
 
 The TS packages ship raw source consumed by the consumer's Vite/esbuild (no build step).
+
+## Examples playground
+
+A standalone Vite app under [`examples/`](./examples) renders the real shared
+components (`EntityTable`, `ListHeader`, `FilterChips`) against sample data so
+you can eyeball them — selection highlight, keyboard nav, sort, grouping, the
+row "⋯" menu — without either consuming app.
+
+```bash
+make examples   # installs the workspace + opens http://localhost:5199
+```
+
+Other targets: `make build` (verify it compiles), `make help`, `make clean`.
+
+The packages are linked locally via the pnpm workspace, so edits to
+`packages/ts/*` are reflected live.

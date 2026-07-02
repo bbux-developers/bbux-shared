@@ -1,0 +1,12 @@
+{
+  "name": "bbux-shared-root",
+  "private": true,
+  "pnpm": {
+    "overrides": {
+      "@bbux/types": "workspace:*",
+      "@bbux/ui": "workspace:*",
+      "@bbux/table": "workspace:*",
+      "@bbux/hooks": "workspace:*"
+    }
+  }
+}

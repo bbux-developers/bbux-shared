@@ -1,0 +1,99 @@
+import { EntityTable, FilterChips, type RowActionsConfig } from '@bbux/table';
+import type { ActiveFilters, FilterField, ListSchema, TableSettings } from '@bbux/types';
+import { defaultTableSettings } from '@bbux/types';
+import { ListHeader } from '@bbux/ui';
+import { Layers, Table, Users } from 'lucide-react';
+import { useState } from 'react';
+
+// Standalone playground for the shared @bbux/* components. It renders the real
+// EntityTable + ListHeader + FilterChips against static sample data so you can
+// eyeball: selection highlight (click a row's checkbox), keyboard nav, sort
+// header clicks, grouping (the "Group by team" button), and the row "⋯" menu.
+//
+// NOTE: EntityTable is a view layer — a real app applies sort/filter to the
+// data and feeds the result in. Here the rows are static, so the sort arrows +
+// filter chips update state but don't re-order/filter the sample rows; grouping
+// DOES take effect (the table groups the rows it's given).
+
+interface Person {
+  id: string;
+  name: string;
+  team: string;
+  status: string;
+  amount: string;
+}
+
+const schema: ListSchema = {
+  columns: [
+    { key: 'name', label: 'Name', type: 'text', sortable: true, pinned: 'left', primary: true },
+    { key: 'team', label: 'Team', type: 'text', sortable: true },
+    { key: 'status', label: 'Status', type: 'text', sortable: true },
+    { key: 'amount', label: 'Amount', type: 'text', sortable: true },
+  ],
+};
+
+const PEOPLE: Person[] = [
+  { id: '1', name: 'Ada Lovelace', team: 'Platform', status: 'Active', amount: '$1,200' },
+  { id: '2', name: 'Alan Turing', team: 'Platform', status: 'Active', amount: '$980' },
+  { id: '3', name: 'Grace Hopper', team: 'Design', status: 'Invited', amount: '$640' },
+  { id: '4', name: 'Katherine Johnson', team: 'Design', status: 'Active', amount: '$1,500' },
+  { id: '5', name: 'Margaret Hamilton', team: 'Ops', status: 'Suspended', amount: '$0' },
+  { id: '6', name: 'Barbara Liskov', team: 'Ops', status: 'Active', amount: '$2,100' },
+];
+
+const filterFields: FilterField[] = [
+  { kind: 'text', key: 'name', label: 'Name', icon: Users, iconClassName: 'text-text-muted' },
+  { kind: 'text', key: 'team', label: 'Team', icon: Layers, iconClassName: 'text-text-muted' },
+];
+
+export default function App() {
+  const [settings, setSettings] = useState<TableSettings>(() => defaultTableSettings(schema));
+  const [filters, setFilters] = useState<ActiveFilters>({});
+
+  const rowActions: RowActionsConfig<Person> = {
+    entityNoun: 'person',
+    nameOf: (p) => p.name,
+    onDelete: (p) => {
+      window.alert(`(demo) delete ${p.name}`);
+      return Promise.resolve();
+    },
+  };
+
+  return (
+    <div className="flex h-svh flex-col bg-background text-text">
+      <ListHeader left={<FilterChips fields={filterFields} active={filters} onChange={setFilters} />}>
+        <button
+          type="button"
+          onClick={() =>
+            setSettings((s) => ({ ...s, groupBy: s.groupBy === 'team' ? null : 'team' }))
+          }
+          className="rounded-md border border-border px-2 py-1 text-text-muted text-xs hover:text-text"
+        >
+          {settings.groupBy ? 'Ungroup' : 'Group by team'}
+        </button>
+      </ListHeader>
+
+      <EntityTable<Person>
+        title="People"
+        schema={schema}
+        rows={PEOPLE}
+        total={PEOPLE.length}
+        newLabel="New person"
+        isLoading={false}
+        error={null}
+        emptyIcon={<Table />}
+        emptyTitle="No people"
+        emptyDescription="Nothing to show."
+        rowKey={(p) => p.id}
+        activeFilters={filters}
+        onFiltersChange={setFilters}
+        tableSettings={settings}
+        onTableSettingsChange={setSettings}
+        rowActions={rowActions}
+        onLoadMore={() => {}}
+        hasMore={false}
+        isFetchingMore={false}
+      />
+    </div>
+  );
+}
