@@ -52,6 +52,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import type { ComponentType, CSSProperties, ReactElement, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { TableCell } from '../table';
 import { type CellProps, CELL_REGISTRY, TextCell } from './cells';
 import { RefLinkCell } from './cells/RefLinkCell';
@@ -389,10 +390,25 @@ export function renderCell(
   const isFirst = index === 0;
 
   // Consumer-supplied render escape hatch wins over any schema-driven cell.
+  // When this is also the link column (linkHref set — i.e. the primary cell of
+  // a table with detailPathBase), wrap the rendered content in the same
+  // react-router <Link> TextCell uses, so an overridden primary cell (e.g. a
+  // name/badge rendered via cellOverrides) still navigates to the detail page.
   if (cellExtras?.override) {
+    const content = cellExtras.override(row);
     return (
       <TableCell key={col.key} className={cellExtras.className} style={cellExtras.style}>
-        {cellExtras.override(row)}
+        {cellExtras.linkHref ? (
+          <Link
+            to={cellExtras.linkHref}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:underline"
+          >
+            {content}
+          </Link>
+        ) : (
+          content
+        )}
       </TableCell>
     );
   }
