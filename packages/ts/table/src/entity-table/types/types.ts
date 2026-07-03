@@ -60,6 +60,10 @@ export interface CustomRowAction {
   danger?: boolean;
   /** When true the item is skipped (e.g. locked/system rows). */
   hidden?: boolean;
+  /** When true the actions menu stays OPEN after onSelect, so a modal the
+   *  action opens stacks on top of it instead of replacing it. Set this on
+   *  actions that open a dialog (e.g. Set PIN); leave it off for navigation. */
+  keepOpen?: boolean;
 }
 
 /** Multi-row counterpart to CustomRowAction: `onSelect` receives every selected
@@ -72,6 +76,10 @@ export interface BulkAction<T> {
   danger?: boolean;
   /** When true the item is skipped (e.g. locked/system rows). */
   hidden?: boolean;
+  /** When true the actions menu stays OPEN (and selection is kept) after
+   *  onSelect, so a modal the action opens stacks on top instead of replacing
+   *  the menu. */
+  keepOpen?: boolean;
 }
 
 /** Minimal tag API the bulk-actions menu needs; the consumer supplies its own

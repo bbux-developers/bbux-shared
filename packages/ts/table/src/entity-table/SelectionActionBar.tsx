@@ -381,7 +381,9 @@ export function BulkActionsMenu<T>({
                         value={a.label}
                         onSelect={() => {
                           a.onSelect();
-                          onClose();
+                          // keepOpen actions (e.g. Set PIN) leave the menu open
+                          // so the modal they open stacks on top of it.
+                          if (!a.keepOpen) onClose();
                         }}
                         className={
                           a.danger ? 'text-danger data-[selected=true]:text-danger' : undefined
@@ -412,8 +414,12 @@ export function BulkActionsMenu<T>({
                         disabled={busy}
                         onSelect={async () => {
                           await a.onSelect([...rows]);
-                          onClear?.();
-                          onClose();
+                          // keepOpen actions leave the menu + selection intact
+                          // so a modal they open stacks on top.
+                          if (!a.keepOpen) {
+                            onClear?.();
+                            onClose();
+                          }
                         }}
                         className={
                           a.danger ? 'text-danger data-[selected=true]:text-danger' : undefined
