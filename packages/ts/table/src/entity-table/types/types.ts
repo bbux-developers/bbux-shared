@@ -10,8 +10,15 @@ export interface RowActionsConfig<T> {
   entityNoun: string;
   /** The row's display name (delete-confirm prompt + a11y). */
   nameOf: (row: T) => string;
-  /** When set, a Delete item opens the type-to-confirm modal then runs this. */
+  /** When set, a Delete item opens the type-to-confirm modal then runs this.
+   *  For a multi-row selection each row is deleted individually via Promise.all
+   *  UNLESS `onBulkDelete` is also provided (see below). */
   onDelete?: (row: T) => Promise<unknown>;
+  /** When set, the built-in bulk-delete confirm flow calls this ONCE for the
+   *  whole selection instead of `Promise.all(rows.map(onDelete))`. Only affects
+   *  the multi-row path; single-row delete still uses `onDelete`. Lets consumers
+   *  batch a delete into one request (e.g. a single bulk-delete mutation). */
+  onBulkDelete?: (rows: T[]) => Promise<void>;
   /** Per-row gate for Delete (e.g. hide on base definitions). Default: allowed. */
   canDelete?: (row: T) => boolean;
   /** When set, a "Set status" submenu of these options is shown. */
@@ -35,12 +42,29 @@ export interface RowActionsConfig<T> {
    *  actions the fixed config can't express — e.g. a cascade-reassign delete,
    *  or view/edit navigation. Return [] (or set hidden) to omit for a row. */
   customActions?: (row: T) => ReadonlyArray<CustomRowAction>;
+  /** Extra bulk menu items beyond the built-ins (Set status / Delete) for a
+   *  MULTI-row selection. Rendered alongside the bulk delete/status entries in
+   *  the actions menu. The mirror of `customActions` for the many-rows case —
+   *  `onSelect` receives every selected row. Return [] (or set hidden) to omit. */
+  bulkActions?: (rows: T[]) => ReadonlyArray<BulkAction<T>>;
 }
 
 export interface CustomRowAction {
   label: string;
   icon?: ReactNode;
   onSelect: () => void;
+  /** Renders in the danger colour (e.g. Delete). */
+  danger?: boolean;
+  /** When true the item is skipped (e.g. locked/system rows). */
+  hidden?: boolean;
+}
+
+/** Multi-row counterpart to CustomRowAction: `onSelect` receives every selected
+ *  row (and may be async — the menu awaits it before closing). */
+export interface BulkAction<T> {
+  label: string;
+  icon?: ReactNode;
+  onSelect: (rows: T[]) => void | Promise<void>;
   /** Renders in the danger colour (e.g. Delete). */
   danger?: boolean;
   /** When true the item is skipped (e.g. locked/system rows). */

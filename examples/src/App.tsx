@@ -2,7 +2,7 @@ import { EntityTable, FilterChips, type RowActionsConfig } from '@bbux/table';
 import type { ActiveFilters, FilterField, ListSchema, TableSettings } from '@bbux/types';
 import { defaultTableSettings } from '@bbux/types';
 import { ListHeader } from '@bbux/ui';
-import { Layers, Table, Users } from 'lucide-react';
+import { Layers, Mail, Table, Users } from 'lucide-react';
 import { useState } from 'react';
 
 // Standalone playground for the shared @bbux/* components. It renders the real
@@ -60,6 +60,20 @@ export default function App() {
     nameOf: (p) => p.name,
     onDelete: (p) => {
       window.alert(`(demo) delete ${p.name}`);
+      return Promise.resolve();
+    },
+    // Custom bulk action for a multi-row selection — receives every selected row.
+    bulkActions: (rows) => [
+      {
+        label: `Email ${rows.length} selected…`,
+        icon: <Mail aria-hidden />,
+        onSelect: (selected) =>
+          window.alert(`(demo) email ${selected.map((p) => p.name).join(', ')}`),
+      },
+    ],
+    // Batched delete — called ONCE for the whole selection instead of per-row.
+    onBulkDelete: (rows) => {
+      window.alert(`(demo) bulk delete ${rows.length}: ${rows.map((p) => p.name).join(', ')}`);
       return Promise.resolve();
     },
   };

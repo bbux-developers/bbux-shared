@@ -16,6 +16,7 @@ export {
 export type {
   RowActionsConfig,
   CustomRowAction,
+  BulkAction,
   TagApi,
   TagOption,
   EntityListToolbarState,

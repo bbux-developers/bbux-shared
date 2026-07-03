@@ -226,7 +226,13 @@ export function BulkActionsMenu<T>({
           n === 1 ? undefined : `This permanently deletes all ${n} selected ${plural(noun, n)}.`
         }
         onConfirm={async () => {
-          await Promise.all(deletable.map((r) => onDelete(r)));
+          // Batched bulk delete only applies to the multi-row path; a single-row
+          // delete still routes through the per-row onDelete.
+          if (n > 1 && rowActions?.onBulkDelete) {
+            await rowActions.onBulkDelete(deletable);
+          } else {
+            await Promise.all(deletable.map((r) => onDelete(r)));
+          }
           if (listField) qc.invalidateQueries({ queryKey: [listField] });
           qc.invalidateQueries({ queryKey: ['entity-tags'] });
           toast.success(`Deleted · ${n} ${plural(noun, n)}`);
@@ -354,6 +360,32 @@ export function BulkActionsMenu<T>({
                         value={a.label}
                         onSelect={() => {
                           a.onSelect();
+                          onClose();
+                        }}
+                        className={
+                          a.danger ? 'text-danger data-[selected=true]:text-danger' : undefined
+                        }
+                      >
+                        {a.icon}
+                        {a.label}
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              ) : null}
+
+              {!single && rowActions?.bulkActions ? (
+                <CommandGroup>
+                  {rowActions
+                    .bulkActions([...rows])
+                    .filter((a) => !a.hidden)
+                    .map((a) => (
+                      <CommandItem
+                        key={a.label}
+                        value={a.label}
+                        disabled={busy}
+                        onSelect={async () => {
+                          await a.onSelect([...rows]);
+                          onClear?.();
                           onClose();
                         }}
                         className={
