@@ -57,6 +57,7 @@ export default function App() {
 
   const rowActions: RowActionsConfig<Person> = {
     entityNoun: 'person',
+    copyLabel: 'person ID',
     nameOf: (p) => p.name,
     onDelete: (p) => {
       window.alert(`(demo) delete ${p.name}`);

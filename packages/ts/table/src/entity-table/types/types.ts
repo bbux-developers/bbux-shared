@@ -8,6 +8,9 @@ import type { ReactNode } from 'react';
 export interface RowActionsConfig<T> {
   /** Lowercase noun for the delete-confirm dialog, e.g. "article", "role". */
   entityNoun: string;
+  /** Human noun for what `rowId` holds, used to label the built-in Copy action
+   *  (e.g. "SOW code" → "Copy SOW code"). Defaults to "ID". */
+  copyLabel?: string;
   /** The row's display name (delete-confirm prompt + a11y). */
   nameOf: (row: T) => string;
   /** When set, a Delete item opens the type-to-confirm modal then runs this.

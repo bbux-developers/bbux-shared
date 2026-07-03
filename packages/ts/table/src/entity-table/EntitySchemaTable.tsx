@@ -142,6 +142,18 @@ function stickyHeaderBoxShadow(showLeftPin: boolean, showRightPin: boolean): str
   return layers.join(', ');
 }
 
+/**
+ * Decides whether a keydown should self-open the bulk actions menu (⌘/Ctrl+K).
+ * Extracted so the exact guard is unit-testable without mounting the whole
+ * grid: fires only for Meta/Ctrl+K while at least one row is selected.
+ */
+export function shouldOpenBulkMenu(
+  e: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'key'>,
+  selectedCount: number,
+): boolean {
+  return (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && selectedCount > 0;
+}
+
 // The per-row "⋯" menu is built by EntitySchemaTable (which knows the row type
 // T, rowKey, and detailPathBase) and consumed by each Row through this context,
 // so the action config never has to thread through the virtualized/grouped row
@@ -691,6 +703,16 @@ export function EntitySchemaTable<T>({
         return;
       }
 
+      // Cmd/Ctrl+K — open the bulk actions menu for the current selection.
+      // Self-listened here so consumers WITHOUT a command palette (which is
+      // what registerBulkCommand feeds) still get the shortcut. Only fires
+      // while rows are selected; gated by isEditable like the others above.
+      if (shouldOpenBulkMenu(e, selectedIds.size)) {
+        e.preventDefault();
+        openBulkMenu();
+        return;
+      }
+
       // First navigation key with no focus jumps to the top.
       if (focusedIndex === null) {
         if (
@@ -752,7 +774,7 @@ export function EntitySchemaTable<T>({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [focusedIndex, loadedIdsArray, selectRow, toggleAll, selectable]);
+  }, [focusedIndex, loadedIdsArray, selectRow, toggleAll, selectable, openBulkMenu, selectedIds.size]);
 
   const focusedId = focusedIndex !== null ? loadedIdsArray[focusedIndex] : null;
 

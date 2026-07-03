@@ -120,6 +120,7 @@ export function BulkActionsMenu<T>({
   const [search, setSearch] = useState('');
 
   const noun = rowActions?.entityNoun ?? 'item';
+  const copyLabel = rowActions?.copyLabel ?? 'ID';
   const status = rowActions?.status;
   const onDelete = rowActions?.onDelete;
   const baseType = rowActions?.baseType;
@@ -244,17 +245,35 @@ export function BulkActionsMenu<T>({
     ));
   };
 
-  const copyId = async () => {
-    const id = single ? rowId(single) : undefined;
-    if (!id) return;
+  // Copy — bulk-aware. Single row copies its rowId; a multi-select copies every
+  // selected row's rowId, newline-joined, skipping rows with a falsy rowId.
+  // Non-destructive, so selection is left intact (no onClear).
+  const copyIds = async () => {
+    if (single) {
+      const id = rowId(single);
+      if (!id) return;
+      try {
+        await navigator.clipboard.writeText(id);
+        toast.success(`${copyLabel} copied`);
+      } catch {
+        toast.error('Could not copy');
+      }
+      onClose();
+      return;
+    }
+    const ids = rows.map(rowId).filter((id): id is string => Boolean(id));
+    if (ids.length === 0) return;
     try {
-      await navigator.clipboard.writeText(id);
-      toast.success('ID copied');
+      await navigator.clipboard.writeText(ids.join('\n'));
+      toast.success(`${ids.length} ${copyLabel}s copied`);
     } catch {
-      toast.error('Could not copy ID');
+      toast.error('Could not copy');
     }
     onClose();
   };
+
+  // At least one selected row has a truthy rowId → the copy item is worth showing.
+  const anyCopyable = rows.some((r) => Boolean(rowId(r)));
 
   const edit = () => {
     const href = single ? editHref(single) : undefined;
@@ -333,11 +352,13 @@ export function BulkActionsMenu<T>({
           ) : (
             <>
               {single ? (
+                // Built-in Copy/Edit AND the consumer's customActions live in
+                // ONE heading={noun} group so cmdk renders no gap between them.
                 <CommandGroup heading={noun}>
-                  {rowId(single) ? (
-                    <CommandItem value="copy id" onSelect={copyId}>
+                  {anyCopyable ? (
+                    <CommandItem value="copy id" onSelect={copyIds}>
                       <Copy aria-hidden />
-                      Copy ID
+                      Copy {copyLabel}
                     </CommandItem>
                   ) : null}
                   {editHref(single) ? (
@@ -346,13 +367,8 @@ export function BulkActionsMenu<T>({
                       Edit
                     </CommandItem>
                   ) : null}
-                </CommandGroup>
-              ) : null}
-
-              {single && rowActions?.customActions ? (
-                <CommandGroup>
                   {rowActions
-                    .customActions(single)
+                    ?.customActions?.(single)
                     .filter((a) => !a.hidden)
                     .map((a) => (
                       <CommandItem
@@ -373,10 +389,16 @@ export function BulkActionsMenu<T>({
                 </CommandGroup>
               ) : null}
 
-              {!single && rowActions?.bulkActions ? (
+              {!single ? (
                 <CommandGroup>
+                  {anyCopyable ? (
+                    <CommandItem value="copy ids" onSelect={copyIds}>
+                      <Copy aria-hidden />
+                      Copy {copyLabel}s
+                    </CommandItem>
+                  ) : null}
                   {rowActions
-                    .bulkActions([...rows])
+                    ?.bulkActions?.([...rows])
                     .filter((a) => !a.hidden)
                     .map((a) => (
                       <CommandItem

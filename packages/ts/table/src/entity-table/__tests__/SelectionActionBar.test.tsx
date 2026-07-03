@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BulkActionsMenu } from '../SelectionActionBar';
+import { shouldOpenBulkMenu } from '../EntitySchemaTable';
 import type { RowActionsConfig } from '../types/types';
 
 // The bulk-actions command menu renders through @bbux/ui's ModalProvider (portal
@@ -59,6 +60,105 @@ async function findDeleteItem() {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+// The ⌘/Ctrl+K shortcut lives in EntitySchemaTable's document keydown listener,
+// which is impractical to mount cleanly under jsdom (react-router + outlet +
+// schema + virtualizer scaffolding not present in this harness). Instead we
+// unit-test the extracted decision predicate that the listener calls — the SAME
+// code path, not a reimplementation.
+describe('shouldOpenBulkMenu (⌘K predicate)', () => {
+  it('fires for Meta+K with a selection', () => {
+    expect(shouldOpenBulkMenu({ metaKey: true, ctrlKey: false, key: 'k' }, 2)).toBe(true);
+  });
+  it('fires for Ctrl+K and is case-insensitive on the key', () => {
+    expect(shouldOpenBulkMenu({ metaKey: false, ctrlKey: true, key: 'K' }, 1)).toBe(true);
+  });
+  it('does NOT fire when nothing is selected', () => {
+    expect(shouldOpenBulkMenu({ metaKey: true, ctrlKey: false, key: 'k' }, 0)).toBe(false);
+  });
+  it('does NOT fire without the modifier or for other keys', () => {
+    expect(shouldOpenBulkMenu({ metaKey: false, ctrlKey: false, key: 'k' }, 3)).toBe(false);
+    expect(shouldOpenBulkMenu({ metaKey: true, ctrlKey: false, key: 'a' }, 3)).toBe(false);
+  });
+});
+
+describe('BulkActionsMenu — copy', () => {
+  it('multi-select shows "Copy <label>s" and writes ALL rowIds newline-joined', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const { onClose } = renderMenu(ROWS, {
+      entityNoun: 'person',
+      nameOf: (r) => r.name,
+      copyLabel: 'SOW code',
+    });
+
+    const item = await screen.findByText('Copy SOW codes');
+    await user.click(item);
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith('1\n2\n3');
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('single-select shows "Copy <label>" using copyLabel and copies the one id', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    renderMenu(ROWS.slice(0, 1), {
+      entityNoun: 'person',
+      nameOf: (r) => r.name,
+      copyLabel: 'SOW code',
+    });
+
+    const item = await screen.findByText('Copy SOW code');
+    await user.click(item);
+
+    expect(writeText).toHaveBeenCalledWith('1');
+  });
+
+  it('defaults the label to "ID"/"IDs" when copyLabel is omitted', async () => {
+    renderMenu(ROWS.slice(0, 1), {
+      entityNoun: 'person',
+      nameOf: (r) => r.name,
+    });
+    expect(await screen.findByText('Copy ID')).toBeInTheDocument();
+
+    renderMenu(ROWS, {
+      entityNoun: 'person',
+      nameOf: (r) => r.name,
+    });
+    expect(await screen.findByText('Copy IDs')).toBeInTheDocument();
+  });
+});
+
+describe('BulkActionsMenu — single-row group merge (Fix 3)', () => {
+  it('renders built-in Copy AND customActions under the SAME (single) group', async () => {
+    renderMenu(ROWS.slice(0, 1), {
+      entityNoun: 'person',
+      nameOf: (r) => r.name,
+      customActions: () => [{ label: 'Duplicate row', onSelect: vi.fn() }],
+    });
+
+    const copy = await screen.findByText('Copy ID');
+    const custom = await screen.findByText('Duplicate row');
+
+    // Both items must live inside the SAME cmdk group element — no extra empty
+    // group between the built-ins and the custom action.
+    const copyGroup = copy.closest('[cmdk-group]');
+    const customGroup = custom.closest('[cmdk-group]');
+    expect(copyGroup).not.toBeNull();
+    expect(copyGroup).toBe(customGroup);
+  });
 });
 
 describe('BulkActionsMenu — bulk actions', () => {
