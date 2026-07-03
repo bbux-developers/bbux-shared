@@ -351,10 +351,15 @@ export function BulkActionsMenu<T>({
             </>
           ) : (
             <>
-              {single ? (
+              {single &&
+              (anyCopyable ||
+                editHref(single) ||
+                (rowActions?.customActions?.(single).filter((a) => !a.hidden).length ?? 0) > 0) ? (
                 // Built-in Copy/Edit AND the consumer's customActions live in
                 // ONE heading={noun} group so cmdk renders no gap between them.
-                <CommandGroup heading={noun}>
+                // Only rendered when it has at least one item, so an empty group
+                // never shows a lone heading.
+                <CommandGroup heading={titleCase(noun)}>
                   {anyCopyable ? (
                     <CommandItem value="copy id" onSelect={copyIds}>
                       <Copy aria-hidden />
@@ -454,31 +459,33 @@ export function BulkActionsMenu<T>({
                 </CommandGroup>
               ) : null}
 
-              <CommandGroup heading="Actions">
-                {onDelete && deletable.length > 0 ? (
-                  <CommandItem
-                    value="delete"
-                    disabled={busy}
-                    onSelect={requestDelete}
-                    className="text-danger data-[selected=true]:text-danger"
-                  >
-                    <Trash2 aria-hidden />
-                    Delete {deletable.length} {plural(noun, deletable.length)}…
-                  </CommandItem>
-                ) : null}
-                {onClear ? (
-                  <CommandItem
-                    value="clear selection"
-                    onSelect={() => {
-                      onClear();
-                      onClose();
-                    }}
-                  >
-                    <X aria-hidden />
-                    Clear selection
-                  </CommandItem>
-                ) : null}
-              </CommandGroup>
+              {(onDelete && deletable.length > 0) || onClear ? (
+                <CommandGroup heading="Actions">
+                  {onDelete && deletable.length > 0 ? (
+                    <CommandItem
+                      value="delete"
+                      disabled={busy}
+                      onSelect={requestDelete}
+                      className="text-danger data-[selected=true]:text-danger"
+                    >
+                      <Trash2 aria-hidden />
+                      Delete {deletable.length} {plural(noun, deletable.length)}…
+                    </CommandItem>
+                  ) : null}
+                  {onClear ? (
+                    <CommandItem
+                      value="clear selection"
+                      onSelect={() => {
+                        onClear();
+                        onClose();
+                      }}
+                    >
+                      <X aria-hidden />
+                      Clear selection
+                    </CommandItem>
+                  ) : null}
+                </CommandGroup>
+              ) : null}
             </>
           )}
         </CommandList>
