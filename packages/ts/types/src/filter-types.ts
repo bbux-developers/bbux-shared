@@ -49,6 +49,13 @@ export interface FilterValue {
   value: string;
   label: string;
   count?: number;
+  /**
+   * Palette token consumed by `resolveFilterColor`: a semantic token
+   * (success/danger/warning/info/neutral) or a decorative one
+   * (teal/purple/…). Tints the option's dot in the filter picker and
+   * its bar in the chart. Purely additive — omit for the default look.
+   */
+  color?: string;
 }
 
 // Active filters keyed by field key — values are the selected value

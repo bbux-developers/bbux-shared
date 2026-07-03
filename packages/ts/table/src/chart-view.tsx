@@ -1,7 +1,7 @@
 import type { FilterField } from '@bbux/types';
 import { CalendarRange, Loader2, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from 'recharts';
 import {
   type ChartConfig,
   ChartContainer,
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from './select';
 import type { TableColumn } from './types';
+import { resolveFilterColor } from './entity-table/SchemaRender';
 
 // Value-distribution chart BODY — the superset of tcms's in-memory
 // bucket/distinct chart and bbux's server-count enum-slice chart
@@ -66,6 +67,11 @@ export interface ChartViewClientProps {
   columns: TableColumn[];
   /** The current dataset (post per-column filters + sort). */
   rows: Record<string, string>[];
+  /** Optional filter fields. When the charted column matches a static
+   *  (enum) field by key, that field's per-value colours tint the bars —
+   *  the same colours the filter picker shows. Text columns only; numeric
+   *  buckets stay uncoloured. Omit for the plain single-colour chart. */
+  filterFields?: ReadonlyArray<FilterField>;
 }
 
 /** A datetime dimension the count-mode date-range control can filter by. */
@@ -101,6 +107,9 @@ interface Datum {
   label: string;
   count: number;
   value?: string;
+  /** Per-bar fill (a CSS var string ready for recharts) when the slice
+   *  value carries a colour token; undefined → single-colour fallback. */
+  color?: string;
 }
 
 export function ChartView(props: ChartViewProps) {
@@ -110,7 +119,7 @@ export function ChartView(props: ChartViewProps) {
 
 // ── CLIENT mode ────────────────────────────────────────────────────
 
-function ClientChartView({ columns, rows }: ChartViewClientProps) {
+function ClientChartView({ columns, rows, filterFields }: ChartViewClientProps) {
   const [columnId, setColumnId] = useState<string | null>(() => columns[0]?.id ?? null);
 
   const column = useMemo(() => columns.find((c) => c.id === columnId) ?? null, [columns, columnId]);
@@ -119,8 +128,10 @@ function ClientChartView({ columns, rows }: ChartViewClientProps) {
 
   const data = useMemo<Datum[]>(() => {
     if (!column) return [];
-    return numeric ? bucketNumeric(rows, column.label) : countDistinct(rows, column.label);
-  }, [column, numeric, rows]);
+    if (numeric) return bucketNumeric(rows, column.label);
+    const distinct = countDistinct(rows, column.label);
+    return applyClientColors(distinct, column.id, filterFields);
+  }, [column, numeric, rows, filterFields]);
 
   const hasData = data.some((d) => d.count > 0);
 
@@ -166,20 +177,20 @@ interface SliceOption {
   label: string;
   icon: LucideIcon;
   iconClassName: string;
-  values: ReadonlyArray<{ value: string; label: string }>;
+  values: ReadonlyArray<{ value: string; label: string; color?: string }>;
 }
 
 // Enum filter fields (kind === 'static' with inline values) are the
 // sliceable dimensions — their finite value set is exactly what we count
 // over.
-function sliceOptionFor(f: FilterField): SliceOption | null {
+export function sliceOptionFor(f: FilterField): SliceOption | null {
   if (f.kind !== 'static' || !f.values?.length) return null;
   return {
     key: f.key,
     label: f.label,
     icon: f.icon,
     iconClassName: f.iconClassName,
-    values: f.values.map((v) => ({ value: v.value, label: v.label })),
+    values: f.values.map((v) => ({ value: v.value, label: v.label, color: v.color })),
   };
 }
 
@@ -187,6 +198,40 @@ function sliceOptionFor(f: FilterField): SliceOption | null {
  *  cache (e.g. React Query). Given the cache key + a thunk that resolves
  *  the datums, it returns the current async state. Defaults to a plain
  *  useEffect-based runner (no external cache). */
+// Resolve a slice value's palette token into a recharts-ready fill CSS
+// var, or undefined when the value carries no colour. Exported so the
+// colour-mapping contract can be unit-tested without rendering SVG.
+export function datumColorForSliceValue(color: string | undefined): string | undefined {
+  return color ? colorVarFromTextClass(resolveFilterColor(color)) : undefined;
+}
+
+// CLIENT-mode colour application: when the charted column matches a static
+// (enum) filter field by key, tint each datum from that field's per-value
+// colours. countDistinct keys its buckets on the raw cell string, which for
+// a text column equals the FilterValue.value — so we match the field's
+// value→color map against the datum label. No matching field, or a value
+// with no colour → the datum's colour stays undefined (single-colour bar).
+// Exported so the colour-mapping contract is unit-testable without recharts.
+export function applyClientColors(
+  data: Datum[],
+  columnId: string,
+  filterFields: ReadonlyArray<FilterField> | undefined,
+): Datum[] {
+  const field = filterFields?.find(
+    (f): f is Extract<FilterField, { kind: 'static' }> =>
+      f.kind === 'static' && f.key === columnId,
+  );
+  if (!field) return data;
+  const valueColor = new Map<string, string | undefined>(
+    field.values.map((v) => [v.value, v.color]),
+  );
+  return data.map((d) => {
+    const token = valueColor.get(d.value ?? d.label);
+    const color = datumColorForSliceValue(token);
+    return color ? { ...d, color } : d;
+  });
+}
+
 export type RunCounts = (
   key: string,
   run: () => Promise<Datum[]>,
@@ -350,6 +395,7 @@ function SliceChart({
       slice.values.map(async (v) => ({
         value: v.value,
         label: v.label,
+        color: datumColorForSliceValue(v.color),
         count: await count({ ...baseWhere, ...dateWhere, [slice.key]: { eq: v.value } }),
       })),
     );
@@ -404,6 +450,11 @@ function SliceChart({
 function Bars({ data, color }: { data: Datum[]; color: string }) {
   const chartConfig = { count: { label: 'Count', color } } satisfies ChartConfig;
   const dense = data.length > 6;
+  // When any datum carries its own colour (a coloured enum slice like
+  // Status), render one <Cell> per bar so each value gets its own fill;
+  // bars without a colour fall back to the single slice/field colour.
+  // With NO coloured datums we keep the original single-fill Bar.
+  const perBar = data.some((d) => d.color);
   return (
     <div className="mb-4">
       <ChartContainer config={chartConfig} className="aspect-[4/3] w-full">
@@ -428,6 +479,11 @@ function Bars({ data, color }: { data: Datum[]; color: string }) {
           />
           <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel={false} />} />
           <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-count)">
+            {perBar
+              ? data.map((d) => (
+                  <Cell key={d.value ?? d.label} fill={d.color ?? 'var(--color-count)'} />
+                ))
+              : null}
             <LabelList dataKey="count" position="top" className="fill-text-muted" fontSize={10} />
           </Bar>
         </BarChart>

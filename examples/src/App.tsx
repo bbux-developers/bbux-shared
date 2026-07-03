@@ -2,7 +2,7 @@ import { EntityTable, FilterChips, type RowActionsConfig } from '@bbux/table';
 import type { ActiveFilters, FilterField, ListSchema, TableSettings } from '@bbux/types';
 import { defaultTableSettings } from '@bbux/types';
 import { ListHeader } from '@bbux/ui';
-import { Layers, Mail, Table, Users } from 'lucide-react';
+import { CircleDot, Layers, Mail, Table, Users } from 'lucide-react';
 import { useState } from 'react';
 
 // Standalone playground for the shared @bbux/* components. It renders the real
@@ -46,6 +46,21 @@ const PEOPLE: Person[] = [
 const filterFields: FilterField[] = [
   { kind: 'text', key: 'name', label: 'Name', icon: Users, iconClassName: 'text-text-muted' },
   { kind: 'text', key: 'team', label: 'Team', icon: Layers, iconClassName: 'text-text-muted' },
+  // Static enum filter with per-value colours: the picker shows a coloured
+  // dot beside each option, and slicing the chart by Status colours each bar
+  // to match (Active→green, Invited→amber, Suspended→red).
+  {
+    kind: 'static',
+    key: 'status',
+    label: 'Status',
+    icon: CircleDot,
+    iconClassName: 'text-text-muted',
+    values: [
+      { value: 'Active', label: 'Active', color: 'success' },
+      { value: 'Invited', label: 'Invited', color: 'warning' },
+      { value: 'Suspended', label: 'Suspended', color: 'danger' },
+    ],
+  },
 ];
 
 export default function App() {

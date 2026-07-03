@@ -19,6 +19,7 @@ import {
   DropdownMenuSubTrigger,
 } from './dropdown-menu';
 import { fetchDistinctPage } from './distinct';
+import { resolveFilterColor } from './entity-table/SchemaRender';
 
 // Filter menu content — bbux's REAL FilterPopover, copied verbatim from
 // apps/web/src/components/entity-list/FilterPopover.tsx into @bbux/table so
@@ -378,6 +379,15 @@ function ValueList({
                 // Keep the menu open across clicks for multi-select.
                 onSelect={(e) => e.preventDefault()}
               >
+                {v.color ? (
+                  <span
+                    className={cn(
+                      'size-2 shrink-0 rounded-full bg-current',
+                      resolveFilterColor(v.color),
+                    )}
+                    aria-hidden
+                  />
+                ) : null}
                 <span className="flex-1">{v.label}</span>
                 {v.count != null ? (
                   <span className="ml-2 text-xs tabular-nums text-text-muted">{v.count}</span>
