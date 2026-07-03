@@ -222,14 +222,14 @@ export function applyClientColors(
       f.kind === 'static' && f.key === columnId,
   );
   if (!field) return data;
-  const valueColor = new Map<string, string | undefined>(
-    field.values.map((v) => [v.value, v.color]),
-  );
-  return data.map((d) => {
-    const token = valueColor.get(d.value ?? d.label);
-    const color = datumColorForSliceValue(token);
-    return color ? { ...d, color } : d;
-  });
+  // Per-column colour (matches bbux's count-mode chart, which colours the whole
+  // breakdown by the slice's icon colour): every bar of a static column gets
+  // that column's filter-icon colour. colorVarFromTextClass maps the icon's
+  // text-* class → a CSS var (falling back to --primary for a neutral/unknown
+  // class), so a coloured column charts in its colour and an uncoloured one
+  // charts in the primary accent.
+  const color = colorVarFromTextClass(field.iconClassName);
+  return data.map((d) => ({ ...d, color }));
 }
 
 export type RunCounts = (

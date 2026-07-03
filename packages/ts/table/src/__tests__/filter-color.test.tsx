@@ -95,21 +95,17 @@ describe('datumColorForSliceValue — chart fill mapping', () => {
   });
 });
 
-describe('applyClientColors — CLIENT-mode column↔field colour', () => {
-  // countDistinct produces { label, count } keyed on the raw cell string,
-  // which for a text column equals FilterValue.value → match on label.
+describe('applyClientColors — CLIENT-mode per-column field colour', () => {
   const distinct = [
     { label: 'Active', count: 5 },
     { label: 'Invited', count: 2 },
     { label: 'Plain', count: 1 },
   ];
 
-  it('tints datums that match a static field value, leaves the rest undefined', () => {
-    const out = applyClientColors(distinct, 'status', [STATUS_FIELD]);
-    expect(out.find((d) => d.label === 'Active')?.color).toBe('var(--success)');
-    expect(out.find((d) => d.label === 'Invited')?.color).toBe('var(--warning)');
-    // 'Plain' is a value with no colour → stays undefined.
-    expect(out.find((d) => d.label === 'Plain')?.color).toBeUndefined();
+  it('colours EVERY bar with the matched static field icon colour (per-column, like bbux)', () => {
+    const field = { ...STATUS_FIELD, iconClassName: 'text-success' };
+    const out = applyClientColors(distinct, 'status', [field]);
+    expect(out.every((d) => d.color === 'var(--success)')).toBe(true);
   });
 
   it('leaves every datum uncoloured when no field matches the column', () => {
