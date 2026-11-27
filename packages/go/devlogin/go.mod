@@ -1,4 +1,4 @@
-module github.com/matthewblackburn/bbux-shared/packages/go/devlogin
+module github.com/bbux-developers/bbux-shared/packages/go/devlogin
 
 go 1.25.0
 

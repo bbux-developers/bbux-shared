@@ -1,4 +1,4 @@
-module github.com/matthewblackburn/bbux-shared/packages/go/auth
+module github.com/bbux-developers/bbux-shared/packages/go/auth
 
 go 1.25.0
 

@@ -25,20 +25,20 @@ packages/
 ```
 
 Each `packages/go/<name>` is its **own Go module**
-(`github.com/matthewblackburn/bbux-shared/packages/go/<name>`); consumers pin
+(`github.com/bbux-developers/bbux-shared/packages/go/<name>`); consumers pin
 each one by commit pseudo-version.
 
 ## Install
 
 ```jsonc
 // package.json
-"@bbux/ui":    "github:matthewblackburn/bbux-shared#path:packages/ts/ui",
-"@bbux/hooks": "github:matthewblackburn/bbux-shared#path:packages/ts/hooks",
-"@bbux/types": "github:matthewblackburn/bbux-shared#path:packages/ts/types"
+"@bbux/ui":    "github:bbux-developers/bbux-shared#path:packages/ts/ui",
+"@bbux/hooks": "github:bbux-developers/bbux-shared#path:packages/ts/hooks",
+"@bbux/types": "github:bbux-developers/bbux-shared#path:packages/ts/types"
 ```
 
 ```bash
-go get github.com/matthewblackburn/bbux-shared/packages/go/<name>@<commit>
+go get github.com/bbux-developers/bbux-shared/packages/go/<name>@<commit>
 ```
 
 ## Go packages at a glance

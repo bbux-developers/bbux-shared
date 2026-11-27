@@ -16,7 +16,7 @@
 //
 // The module depends ONLY on supertokens-golang and the standard library — no
 // pixelid, pgx, or ent — so it can be installed by any repo as
-// github.com/matthewblackburn/bbux-shared/packages/go/auth.
+// github.com/bbux-developers/bbux-shared/packages/go/auth.
 package auth
 
 import (

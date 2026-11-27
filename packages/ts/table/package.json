@@ -16,7 +16,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "@bbux/types": "github:matthewblackburn/bbux-shared#path:packages/ts/types"
+    "@bbux/types": "github:bbux-developers/bbux-shared#path:packages/ts/types"
   },
   "peerDependencies": {
     "@bbux/ui": "*",

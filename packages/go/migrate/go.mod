@@ -1,4 +1,4 @@
-module github.com/matthewblackburn/bbux-shared/packages/go/migrate
+module github.com/bbux-developers/bbux-shared/packages/go/migrate
 
 go 1.25.0
 
