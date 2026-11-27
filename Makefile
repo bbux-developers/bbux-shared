@@ -53,8 +53,8 @@ define each_go_module
 	done; exit $$status
 endef
 
-test-go: ## Go tests for every module (DB tests skip; MOD=<name> RUN=<regex> narrow)
-	$(call each_go_module,go test -count=1 $(if $(RUN),-run '$(RUN)') ./...)
+test-go: ## Go tests for every module (DB tests skip; MOD=<name> RUN=<regex> V=1)
+	$(call each_go_module,go test -count=1 $(if $(V),-v) $(if $(RUN),-run '$(RUN)') ./...)
 
 lint-go: ## go vet + gofmt check for every Go module
 	$(call each_go_module,go vet ./... && test -z "$$(gofmt -l .)" || { gofmt -l .; false; })
@@ -82,5 +82,5 @@ test-go-integration: ## Go tests incl. DB tests vs a throwaway Postgres on :5499
 	done
 	@status=0; for m in $(GO_MODULES); do \
 		echo "── $$m"; \
-		(cd $$m && TEST_DATABASE_URL="$(TEST_PG_URL)" go test -count=1 -p 1 $(if $(RUN),-run '$(RUN)') ./...) || status=1; \
+		(cd $$m && TEST_DATABASE_URL="$(TEST_PG_URL)" go test -count=1 -p 1 $(if $(V),-v) $(if $(RUN),-run '$(RUN)') ./...) || status=1; \
 	done; docker rm -f $(TEST_PG_NAME) >/dev/null 2>&1 || true; exit $$status
